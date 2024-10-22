@@ -192,7 +192,8 @@ struct EveningReflectionView: View {
                 "如果你可以看到未来，希望看到自己因为这些事情有什么变化？": futureVisionAnswer
             ],
             mindfulnessDuration: 0.0,
-            wordCount: wordCount
+            wordCount: wordCount,
+            isEvening: true // 根据需要传入 true 或 false
         )
         
         addDiaryEntry(newEntry) // 确保这里调用了 addDiaryEntry

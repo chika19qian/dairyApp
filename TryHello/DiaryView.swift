@@ -16,7 +16,22 @@ struct DiaryEntry: Identifiable {
     let questions: [String: String]
     let mindfulnessDuration: Double
     let wordCount: Int
+    
+    let isEvening: Bool? // 可选的布尔值
+    
+    // 自定义初始化器
+    init(date: Date, type: String, mood: Int, events: [String], questions: [String: String], mindfulnessDuration: Double, wordCount: Int, isEvening: Bool?) {
+        self.date = date
+        self.type = type
+        self.mood = mood
+        self.events = events
+        self.questions = questions
+        self.mindfulnessDuration = mindfulnessDuration
+        self.wordCount = wordCount
+        self.isEvening = isEvening
+    }
 }
+
 
 struct DiaryView: View {
     @Binding var diaryEntries: [DiaryEntry]

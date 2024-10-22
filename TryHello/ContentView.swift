@@ -6,6 +6,9 @@
 //
 import SwiftUI
 
+// 添加 DiaryEntry 结构体
+
+
 struct ContentView: View {
     @State private var selectedDate = Date()
     @State private var completedDays: Set<Date> = []
@@ -15,6 +18,10 @@ struct ContentView: View {
     @State private var lastReflectionSummary: String = ""
     @State private var selectedTab = 0 // 0 for 首页, 1 for 日记
     @State private var currentWeekStart: Date = Date() // 当前周的开始日期
+    @State private var currentMonth: String = "" // 当前月份
+    @State private var completedToday = false
+    @State private var completedMorning = false
+    @State private var completedEvening = false
 
     var body: some View {
         TabView(selection: $selectedTab) {
@@ -32,6 +39,10 @@ struct ContentView: View {
                 }
                 .tag(1)
         }
+        .onAppear {
+            updateCurrentMonth() // 确保在视图出现时更新当前月份
+            resetDailyStatus()   // 每次页面出现时重置当天的状态
+        }
     }
     
     var homeView: some View {
@@ -43,37 +54,16 @@ struct ContentView: View {
                     .fontWeight(.bold)
                 
                 // 日期选择器
-                VStack {
-                    Text("本周")
-                        .font(.headline)
-                        .padding(.top)
-                    
-                    ScrollView(.horizontal, showsIndicators: false) {
-                        HStack {
-                            ForEach(0..<7) { index in
-                                let date = Calendar.current.date(byAdding: .day, value: index, to: currentWeekStart)!
-                                DayView(date: date, isSelected: Calendar.current.isDate(selectedDate, inSameDayAs: date), isCompleted: completedDays.contains { Calendar.current.isDate($0, inSameDayAs: date) })
-                                    .onTapGesture {
-                                        selectedDate = date
-                                    }
-                            }
-                        }
-                    }
-                    
-                    // 显示当前月份
-                    Text(monthFormatter.string(from: currentWeekStart))
-                        .font(.caption)
-                        .foregroundColor(.gray)
-                        .padding(.top, 5)
-                }
+                WeekView(currentWeekStart: $currentWeekStart, completedDays: completedDays, selectedDate: $selectedDate, currentMonth: $currentMonth)
             }
             .padding()
             
             // 中央卡片设计
             TabView {
-                CardView(isEvening: false, showReflection: $showingMorningReflection)
-                CardView(isEvening: true, showReflection: $showingEveningReflection)
+                CardView(isEvening: false, showReflection: $showingMorningReflection, completed: $completedMorning)
+                CardView(isEvening: true, showReflection: $showingEveningReflection, completed: $completedEvening)
             }
+
             .tabViewStyle(PageTabViewStyle(indexDisplayMode: .never))
             .frame(height: 300)
             .padding()
@@ -94,6 +84,14 @@ struct ContentView: View {
         if !completedDays.contains(entry.date) {
             completedDays.insert(entry.date)
         }
+        
+        if entry.isEvening ?? false {
+            completedEvening = true
+        } else {
+            completedMorning = true
+        }
+
+        
     }
     
     var greeting: String {
@@ -105,51 +103,126 @@ struct ContentView: View {
         }
     }
     
-    func startOfWeek() -> Date {
-        let calendar = Calendar.current
-        let today = calendar.startOfDay(for: Date())
-        let weekday = calendar.component(.weekday, from: today)
-        return calendar.date(byAdding: .day, value: 1 - weekday, to: today)!
+    func updateCurrentMonth() {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "MMMM yyyy" // 获取当前月份
+        currentMonth = formatter.string(from: currentWeekStart)
     }
     
-    private var monthFormatter: DateFormatter {
-        let formatter = DateFormatter()
-        formatter.dateFormat = "MMMM" // 显示月份
-        return formatter
-    }
+    func resetDailyStatus() {
+            let calendar = Calendar.current
+            let today = calendar.startOfDay(for: Date())
+            
+            if let lastCompletionDate = UserDefaults.standard.object(forKey: "LastCompletionDate") as? Date,
+               !calendar.isDate(lastCompletionDate, inSameDayAs: today) {
+                completedMorning = false
+                completedEvening = false
+            }
+
+            UserDefaults.standard.set(today, forKey: "LastCompletionDate")
+        }
 }
 
-struct DayView: View {
-    var date: Date
-    var isSelected: Bool
-    var isCompleted: Bool
+struct WeekView: View {
+    @Binding var currentWeekStart: Date
+    var completedDays: Set<Date>
+    @Binding var selectedDate: Date
+    @Binding var currentMonth: String
+    
+    func updateCurrentMonth() {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "MMMM yyyy" // 获取当前月份
+        currentMonth = formatter.string(from: currentWeekStart)
+    }
 
     var body: some View {
         VStack {
-            Text(dateFormatter.string(from: date))
+            // 当前月份提示
+            Text(currentMonth)
                 .font(.headline)
-                .foregroundColor(isSelected ? .blue : .black)
-            if isCompleted {
-                Image(systemName: "checkmark.circle.fill")
-                    .foregroundColor(.green)
+                .padding(.bottom, 5)
+            
+            // 周几
+            HStack {
+                ForEach(0..<7) { index in
+                    Text(weekdays[index])
+                        .font(.caption)
+                        .foregroundColor(.gray)
+                        .frame(maxWidth: .infinity)
+                        .multilineTextAlignment(.center)
+                }
             }
-        }
-        .padding()
-        .background(isSelected ? Color.blue.opacity(0.2) : Color.clear)
-        .cornerRadius(10)
-    }
+            
+            // 日期
+            HStack {
+                ForEach(0..<7) { index in
+                    let date = Calendar.current.date(byAdding: .day, value: index, to: currentWeekStart)!
+                    VStack {
+                        ZStack {
+                            if completedDays.contains(date) {
+                                Text("✔️")
+                                    .foregroundColor(.green)
+                                    .font(.headline)
+                            } else {
+                                // 日期数字
+                                Text("\(Calendar.current.component(.day, from: date))")
+                                    .font(.headline)
+                                    .foregroundColor(date == Date() ? .blue : .gray)
+                                    .padding(.bottom, 2)
+                            }
+                        }
+                    }
+                    .frame(maxWidth: .infinity)
+                    .onTapGesture {
+                        selectedDate = date
+                    }
+                }
+            }
 
-    private var dateFormatter: DateFormatter {
+        }
+        .gesture(DragGesture()
+            .onEnded { value in
+                if value.translation.width < 0 {
+                    // 向左滑动，切换到下一周
+                    currentWeekStart = Calendar.current.date(byAdding: .weekOfYear, value: 1, to: currentWeekStart)!
+                    updateCurrentMonth()
+                } else if value.translation.width > 0 {
+                    // 向右滑动，切换到上一周
+                    currentWeekStart = Calendar.current.date(byAdding: .weekOfYear, value: -1, to: currentWeekStart)!
+                    updateCurrentMonth()
+                }
+            }
+        )
+    }
+    
+    var weekdays: [String] {
         let formatter = DateFormatter()
-        formatter.dateFormat = "dd" // 只显示日期
-        return formatter
+        formatter.locale = Locale(identifier: "zh_CN")
+        formatter.dateFormat = "E" // 获取周几的简写
+        return (1...7).map { index in
+            let date = Calendar.current.date(byAdding: .day, value: index, to: currentWeekStart)!
+            return formatter.string(from: date)
+        }
+    }
+    
+    func startOfWeek() -> Date {
+        var calendar = Calendar.current
+        calendar.firstWeekday = 2  // 将一周的第一天设置为周一
+        let today = calendar.startOfDay(for: Date())
+        let weekday = calendar.component(.weekday, from: today)
+        
+        // 计算从当前 weekday 到周一的天数差
+        let daysToSubtract = (weekday + 7 - calendar.firstWeekday) % 7
+        
+        return calendar.date(byAdding: .day, value: -daysToSubtract, to: today)!
     }
 }
 
 struct CardView: View {
     let isEvening: Bool
     @Binding var showReflection: Bool
-    
+    @Binding var completed: Bool // 用于表示早安或晚安是否完成
+
     var body: some View {
         ZStack {
             RoundedRectangle(cornerRadius: 20)
@@ -171,23 +244,34 @@ struct CardView: View {
                     .font(.headline)
                     .foregroundColor(.white.opacity(0.8))
                 
-                Button(action: {
-                    showReflection = true
-                }) {
-                    Text("开始")
+                if completed {
+                    Text("已记录")
                         .font(.headline)
                         .foregroundColor(.white)
                         .padding()
                         .frame(maxWidth: .infinity)
                         .background(Color.white.opacity(0.2))
                         .cornerRadius(10)
+                } else {
+                    Button(action: {
+                        showReflection = true
+                    }) {
+                        Text("开始")
+                            .font(.headline)
+                            .foregroundColor(.white)
+                            .padding()
+                            .frame(maxWidth: .infinity)
+                            .background(Color.white.opacity(0.2))
+                            .cornerRadius(10)
+                    }
+                    .padding(.top)
                 }
-                .padding(.top)
             }
             .padding()
         }
     }
 }
+
 
 struct ContentView_Previews: PreviewProvider {
     static var previews: some View {

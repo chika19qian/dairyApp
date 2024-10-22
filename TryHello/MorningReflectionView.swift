@@ -204,6 +204,8 @@ struct MorningReflectionView: View {
     }
     
     private func saveReflection() {
+        print("保存日记条目") // 确保该函数被执行
+        
         let wordCount = learningReflection.count + learningPlan.count + positiveFeelings.count
         
         let newEntry = DiaryEntry(
@@ -219,8 +221,12 @@ struct MorningReflectionView: View {
                 "如果今天收获满满，并有意外惊喜，你会有什么感受？": positiveFeelings
             ],
             mindfulnessDuration: 0.0,  // 这里可以添加计时功能
-            wordCount: wordCount
+            wordCount: wordCount,
+            
+            isEvening: false
         )
+        
+        print("新建日记条目：\(newEntry)") // 打印新创建的日记条目
         
         addDiaryEntry(newEntry)
         

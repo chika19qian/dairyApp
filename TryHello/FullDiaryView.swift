@@ -133,6 +133,6 @@ struct FullDiaryView: View {
 
 struct FullDiaryView_Previews: PreviewProvider {
     static var previews: some View {
-        FullDiaryView(diary: DiaryEntry(date: Date(), type: "早安日记", mood: 4, events: ["📖 学习"], questions: ["昨晚睡眠感觉如何？": "3/5", "今天专注在什么事情上？": "📖 学习", "关于以下事情，你有什么美好的回忆？": "我很开心", "今天关于以下事情的计划是什么？": "继续学习", "如果今天收获满满，并有意外惊喜，你会有什么感受？": "很期待"], mindfulnessDuration: 0.0, wordCount: 50))
+        FullDiaryView(diary: DiaryEntry(date: Date(), type: "早安日记", mood: 4, events: ["📖 学习"], questions: ["昨晚睡眠感觉如何？": "3/5", "今天专注在什么事情上？": "📖 学习", "关于以下事情，你有什么美好的回忆？": "我很开心", "今天关于以下事情的计划是什么？": "继续学习", "如果今天收获满满，并有意外惊喜，你会有什么感受？": "很期待"], mindfulnessDuration: 0.0, wordCount: 50,isEvening: false))
     }
 }
