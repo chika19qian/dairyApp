@@ -53,8 +53,9 @@ struct ContentView: View {
                 .tag(1)
         }
         .onAppear {
-            updateCurrentMonth() // 确保在视图出现时更新当前月份
-            resetDailyStatus()   // 每次页面出现时重置当天的状态
+            updateCurrentMonth()
+            resetDailyStatus()
+            updateCurrentWeekStart() // 添加这行
         }
     }
     
@@ -140,6 +141,13 @@ struct ContentView: View {
 
             UserDefaults.standard.set(today, forKey: "LastCompletionDate")
         }
+
+    func updateCurrentWeekStart() {
+        let calendar = Calendar.current
+        var components = calendar.dateComponents([.yearForWeekOfYear, .weekOfYear], from: Date())
+        components.weekday = 1 // 确保从周日开始
+        currentWeekStart = calendar.date(from: components)!
+    }
 }
 
 struct WeekView: View {
@@ -150,13 +158,12 @@ struct WeekView: View {
     
     func updateCurrentMonth() {
         let formatter = DateFormatter()
-        formatter.dateFormat = "MMMM yyyy" // 获取当前月份
+        formatter.dateFormat = "MMMM yyyy"
         currentMonth = formatter.string(from: currentWeekStart)
     }
 
     var body: some View {
         VStack {
-            // 当前月份提示
             Text(currentMonth)
                 .font(.headline)
                 .padding(.bottom, 5)
@@ -178,16 +185,18 @@ struct WeekView: View {
                     let date = Calendar.current.date(byAdding: .day, value: index, to: currentWeekStart)!
                     VStack {
                         ZStack {
+                            Circle()
+                                .stroke(Calendar.current.isDateInToday(date) ? Color.blue : Color.clear, lineWidth: 2)
+                                .frame(width: 30, height: 30)
+                            
                             if completedDays.contains(date) {
-                                Text("✔️")
+                                Image(systemName: "checkmark.circle.fill")
                                     .foregroundColor(.green)
-                                    .font(.headline)
+                                    .font(.system(size: 24))
                             } else {
-                                // 日期数字
                                 Text("\(Calendar.current.component(.day, from: date))")
                                     .font(.headline)
-                                    .foregroundColor(date == Date() ? .blue : .gray)
-                                    .padding(.bottom, 2)
+                                    .foregroundColor(Calendar.current.isDateInToday(date) ? .blue : .primary)
                             }
                         }
                     }
@@ -197,16 +206,13 @@ struct WeekView: View {
                     }
                 }
             }
-
         }
         .gesture(DragGesture()
             .onEnded { value in
                 if value.translation.width < 0 {
-                    // 向左滑动，切换到下一周
                     currentWeekStart = Calendar.current.date(byAdding: .weekOfYear, value: 1, to: currentWeekStart)!
                     updateCurrentMonth()
                 } else if value.translation.width > 0 {
-                    // 向右滑动，切换到上一周
                     currentWeekStart = Calendar.current.date(byAdding: .weekOfYear, value: -1, to: currentWeekStart)!
                     updateCurrentMonth()
                 }
@@ -217,22 +223,15 @@ struct WeekView: View {
     var weekdays: [String] {
         let formatter = DateFormatter()
         formatter.locale = Locale(identifier: "zh_CN")
-        formatter.dateFormat = "E" // 获取周几的简写
-        return (1...7).map { index in
-            let date = Calendar.current.date(byAdding: .day, value: index, to: currentWeekStart)!
-            return formatter.string(from: date)
-        }
+        return ["日", "一", "二", "三", "四", "五", "六"]
     }
     
     func startOfWeek() -> Date {
         var calendar = Calendar.current
-        calendar.firstWeekday = 2  // 将一周的第一天设置为周一
+        calendar.firstWeekday = 1  // 将一周的第一天设置为周日
         let today = calendar.startOfDay(for: Date())
         let weekday = calendar.component(.weekday, from: today)
-        
-        // 计算从当前 weekday 到周一的天数差
-        let daysToSubtract = (weekday + 7 - calendar.firstWeekday) % 7
-        
+        let daysToSubtract = weekday - calendar.firstWeekday
         return calendar.date(byAdding: .day, value: -daysToSubtract, to: today)!
     }
 }
