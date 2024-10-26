@@ -6,8 +6,14 @@
 //
 import SwiftUI
 
-// 添加 DiaryEntry 结构体
+// ToDoItem 结构体
 
+struct ToDoItem: Identifiable {
+    let id = UUID()
+    var task: String
+    var isCompleted: Bool = false
+    var dueDate: Date?
+}
 
 struct ContentView: View {
     @State private var selectedDate = Date()
@@ -22,15 +28,22 @@ struct ContentView: View {
     @State private var completedToday = false
     @State private var completedMorning = false
     @State private var completedEvening = false
+    @State private var toDoItems: [ToDoItem] = [] // To-Do list items
+    @State private var newTaskText: String = "" // New task input text
+    @State private var showingAddTask: Bool = false // 控制添加任务的sheet
+    @State private var newTaskDueDate: Date?
+    @State private var sortByDueDate: Bool = false
 
     var body: some View {
         TabView(selection: $selectedTab) {
-            homeView
-                .tabItem {
-                    Image(systemName: "house.fill")
-                    Text("首页")
-                }
-                .tag(0)
+            ScrollView {
+                homeView
+            }
+            .tabItem {
+                Image(systemName: "house.fill")
+                Text("首页")
+            }
+            .tag(0)
             
             DiaryView(diaryEntries: $diaryEntries)
                 .tabItem {
@@ -75,7 +88,13 @@ struct ContentView: View {
                 MorningReflectionView(isPresented: $showingMorningReflection, addDiaryEntry: addDiaryEntry)
             }
             
+            // 添加 To-Do 事项区域
+            ToDoListView(toDoItems: $toDoItems, showingAddTask: $showingAddTask, newTaskText: $newTaskText, newTaskDueDate: $newTaskDueDate, sortByDueDate: $sortByDueDate)
+            
             Spacer()
+        }
+        .sheet(isPresented: $showingAddTask) {
+            AddTaskView(newTaskText: $newTaskText, newTaskDueDate: $newTaskDueDate, toDoItems: $toDoItems, isPresented: $showingAddTask)
         }
     }
     
@@ -272,6 +291,159 @@ struct CardView: View {
     }
 }
 
+struct ToDoListView: View {
+    @Binding var toDoItems: [ToDoItem]
+    @Binding var showingAddTask: Bool
+    @Binding var newTaskText: String
+    @Binding var newTaskDueDate: Date?
+    @Binding var sortByDueDate: Bool
+    
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack {
+                Text("To-Do 事项")
+                    .font(.title2)
+                    .fontWeight(.bold)
+                    .foregroundColor(Color(white: 0.3))
+                Spacer()
+                Button(action: { sortByDueDate.toggle() }) {
+                    Image(systemName: "arrow.up.arrow.down")
+                        .font(.title2)
+                        .foregroundColor(Color(white: 0.3))
+                }
+                Button(action: { showingAddTask = true }) {
+                    Image(systemName: "plus")
+                        .font(.title2)
+                        .foregroundColor(Color(white: 0.3))
+                }
+            }
+            
+            LazyVStack(alignment: .leading, spacing: 12) { // 增加间距
+                ForEach(sortedItems.filter { !$0.isCompleted }) { item in
+                    ToDoItemRow(item: binding(for: item))
+                }
+                
+                if !sortedItems.filter({ $0.isCompleted }).isEmpty {
+                    Text("已完成")
+                        .font(.headline)
+                        .foregroundColor(.gray)
+                        .padding(.top, 8)
+                    
+                    ForEach(sortedItems.filter { $0.isCompleted }) { item in
+                        ToDoItemRow(item: binding(for: item))
+                    }
+                }
+            }
+            
+            Button(action: {
+                toDoItems.removeAll { $0.isCompleted }
+            }) {
+                Text("清除已完成")
+                    .font(.headline)
+                    .padding(.vertical, 8)
+                    .padding(.horizontal, 16)
+                    .background(Color.gray.opacity(0.2))
+                    .cornerRadius(8)
+            }
+            .disabled(toDoItems.filter { $0.isCompleted }.isEmpty)
+        }
+        .padding()
+        .background(Color.yellow.opacity(0.1))
+        .cornerRadius(16)
+        .padding()
+    }
+    
+    private var sortedItems: [ToDoItem] {
+        if sortByDueDate {
+            return toDoItems.sorted { (item1, item2) -> Bool in
+                switch (item1.dueDate, item2.dueDate) {
+                case (.some(let date1), .some(let date2)):
+                    return date1 < date2
+                case (.some, .none):
+                    return true
+                case (.none, .some):
+                    return false
+                case (.none, .none):
+                    return false
+                }
+            }
+        } else {
+            return toDoItems
+        }
+    }
+    
+    private func binding(for item: ToDoItem) -> Binding<ToDoItem> {
+        guard let index = toDoItems.firstIndex(where: { $0.id == item.id }) else {
+            fatalError("Can't find todo item in array")
+        }
+        return $toDoItems[index]
+    }
+}
+
+struct ToDoItemRow: View {
+    @Binding var item: ToDoItem
+    
+    var body: some View {
+        HStack {
+            VStack(alignment: .leading, spacing: 4) {
+                Text(item.task)
+                    .font(.system(size: 18)) // 增大字体
+                    .strikethrough(item.isCompleted)
+                    .foregroundColor(item.isCompleted ? .gray : Color(white: 0.3))
+            }
+            Spacer()
+            if let dueDate = item.dueDate {
+                Text(formatDate(dueDate))
+                    .font(.caption)
+                    .foregroundColor(.gray)
+                    .padding(.trailing, 8) // 在日期和复选框之间添加一些间距
+            }
+            Image(systemName: item.isCompleted ? "checkmark.square.fill" : "square")
+                .font(.title3)
+                .foregroundColor(item.isCompleted ? .green : Color(white: 0.3))
+                .onTapGesture {
+                    item.isCompleted.toggle()
+                }
+        }
+    }
+    
+    private func formatDate(_ date: Date) -> String {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "MM/dd"
+        return formatter.string(from: date)
+    }
+}
+
+struct AddTaskView: View {
+    @Binding var newTaskText: String
+    @Binding var newTaskDueDate: Date?
+    @Binding var toDoItems: [ToDoItem]
+    @Binding var isPresented: Bool
+    
+    var body: some View {
+        NavigationView {
+            Form {
+                TextField("新任务", text: $newTaskText)
+                DatePicker("截止日期", selection: Binding(
+                    get: { self.newTaskDueDate ?? Date() },
+                    set: { self.newTaskDueDate = $0 }
+                ), displayedComponents: .date)
+            }
+            .navigationBarTitle("添加新任务", displayMode: .inline)
+            .navigationBarItems(
+                leading: Button("取消") { isPresented = false },
+                trailing: Button("添加") {
+                    if !newTaskText.isEmpty {
+                        toDoItems.append(ToDoItem(task: newTaskText, dueDate: newTaskDueDate))
+                        newTaskText = ""
+                        newTaskDueDate = nil
+                        isPresented = false
+                    }
+                }
+            )
+        }
+    }
+}
 
 struct ContentView_Previews: PreviewProvider {
     static var previews: some View {
