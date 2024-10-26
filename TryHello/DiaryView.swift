@@ -111,6 +111,9 @@ struct DiaryCard: View {
     let entry: DiaryEntry
     let onEdit: () -> Void
     
+    // 使用 @State 属性包装器，但初始值为 nil
+    @State private var selectedAnswer: String?
+    
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
             HStack {
@@ -126,7 +129,8 @@ struct DiaryCard: View {
                 }
             }
             
-            Text(randomAnswer)
+            // 使用 ?? 运算符提供默认值
+            Text(selectedAnswer ?? "没有记录")
                 .font(.body)
                 .lineLimit(3)
             
@@ -146,10 +150,18 @@ struct DiaryCard: View {
         .background(Color.white)
         .cornerRadius(10)
         .shadow(radius: 2)
+        .onAppear {
+            // 只在 selectedAnswer 为 nil 时选择随机答案
+            if selectedAnswer == nil {
+                selectRandomAnswer()
+            }
+        }
     }
     
-    var randomAnswer: String {
-        entry.questions.values.randomElement() ?? "没有记录"
+    private func selectRandomAnswer() {
+        // 只选择非空的文本答案，排除心情和事件
+        let textAnswers = entry.questions.values.filter { !$0.isEmpty }
+        selectedAnswer = textAnswers.randomElement() ?? "没有记录"
     }
     
     func formattedDate(_ date: Date) -> String {
